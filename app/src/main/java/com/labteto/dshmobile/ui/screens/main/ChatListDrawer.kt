@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
@@ -95,6 +96,7 @@ fun ChatListDrawer(
     onOpenSettings: () -> Unit,
     onOpenAutomations: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onCollapse: (() -> Unit)? = null,
 ) {
     val colors = DsTheme.colors
     val store = rememberSessionStore()
@@ -198,6 +200,16 @@ fun ChatListDrawer(
             modifier = Modifier.fillMaxWidth().padding(top = DsSpacing.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Wide shells let the list collapse into an icon rail; the phone shell passes null.
+            if (onCollapse != null) {
+                DsIconButton(
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = stringResource(R.string.common_close),
+                    onClick = onCollapse,
+                    tint = colors.labelTertiary,
+                    iconSize = 18.dp,
+                )
+            }
             Text(
                 text = stringResource(R.string.chatlist_title),
                 style = DsType.large20,

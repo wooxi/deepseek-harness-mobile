@@ -13,11 +13,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.VerticalDivider
@@ -26,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,10 +51,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.labteto.dshmobile.R
+import com.labteto.dshmobile.ui.components.DsIconButton
 import com.labteto.dshmobile.ui.components.DsToastHost
 import com.labteto.dshmobile.ui.components.rememberDsToast
 import com.labteto.dshmobile.ui.rememberSessionStore
 import com.labteto.dshmobile.ui.theme.DsAnimations
+import com.labteto.dshmobile.ui.theme.DsSpacing
 import com.labteto.dshmobile.ui.theme.DsTheme
 import kotlinx.coroutines.launch
 
@@ -54,8 +66,22 @@ private const val EXPANDED_WIDTH_DP = 600
 /** Persistent session list on the wide shell. */
 private const val SIDEBAR_WIDTH_DP = 300
 
+/** Icon-only rail, used when the window is wide but not tablet-wide. */
+private const val RAIL_WIDTH_DP = 56
+
+/**
+ * Above this width the session list opens by default; below it the rail does. The rail keeps the
+ * transcript useful on a landscape outer screen or a portrait inner screen, where a 300dp list
+ * would eat half the window.
+ */
+private const val SIDEBAR_EXPAND_BREAKPOINT_DP = 720
+
 /** Session details column on the wide shell. */
 private const val DETAILS_WIDTH_DP = 340
+
+private const val SIDEBAR_EXPANDED = 0
+private const val SIDEBAR_RAIL = 1
+private const val SIDEBAR_HIDDEN = 2
 
 /**
  * Two shells, chosen by width:
@@ -252,22 +278,64 @@ private fun WideMainScreen(
     onOpenAutomations: () -> Unit,
     toast: Pair<State<String?>, (String) -> Unit>,
 ) {
+    val widthDp = LocalConfiguration.current.screenWidthDp
+    var sidebar by rememberSaveable {
+        mutableIntStateOf(
+            if (widthDp >= SIDEBAR_EXPAND_BREAKPOINT_DP) SIDEBAR_EXPANDED else SIDEBAR_RAIL,
+        )
+    }
+    // Once the user picks a sidebar mode, folding the phone should not silently undo the choice.
+    var sidebarChosen by rememberSaveable { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(widthDp) {
+        if (!sidebarChosen) {
+            sidebar = if (widthDp >= SIDEBAR_EXPAND_BREAKPOINT_DP) SIDEBAR_EXPANDED else SIDEBAR_RAIL
+        }
+    }
+
+    fun chooseSidebar(mode: Int) {
+        sidebar = mode
+        sidebarChosen = true
+    }
 
     Box(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize()) {
-            ChatListDrawer(
-                onClose = {},
-                onOpenSettings = onOpenSettings,
-                onOpenAutomations = onOpenAutomations,
-                modifier = Modifier.width(SIDEBAR_WIDTH_DP.dp).fillMaxHeight(),
-            )
-            VerticalDivider(color = DsTheme.colors.borderL1)
+            when (sidebar) {
+                SIDEBAR_EXPANDED -> {
+                    ChatListDrawer(
+                        onClose = {},
+                        onOpenSettings = onOpenSettings,
+                        onOpenAutomations = onOpenAutomations,
+                        modifier = Modifier.width(SIDEBAR_WIDTH_DP.dp).fillMaxHeight(),
+                        onCollapse = { chooseSidebar(SIDEBAR_RAIL) },
+                    )
+                    VerticalDivider(color = DsTheme.colors.borderL1)
+                }
+
+                SIDEBAR_RAIL -> {
+                    SessionRail(
+                        onExpand = { chooseSidebar(SIDEBAR_EXPANDED) },
+                        onOpenSettings = onOpenSettings,
+                        onHide = { chooseSidebar(SIDEBAR_HIDDEN) },
+                    )
+                    VerticalDivider(color = DsTheme.colors.borderL1)
+                }
+            }
+
             ChatScreen(
                 onOpenDetails = { detailsOpen = !detailsOpen },
-                onOpenDrawer = {},
+                onOpenDrawer = {
+                    chooseSidebar(
+                        if (widthDp >= SIDEBAR_EXPAND_BREAKPOINT_DP) {
+                            SIDEBAR_EXPANDED
+                        } else {
+                            SIDEBAR_RAIL
+                        },
+                    )
+                },
                 detailsOpen = detailsOpen,
-                showDrawerButton = false,
+                showDrawerButton = sidebar == SIDEBAR_HIDDEN,
                 modifier = Modifier.weight(1f),
             )
             if (detailsOpen) {
@@ -283,5 +351,51 @@ private fun WideMainScreen(
             }
         }
         DsToastHost(toast, Modifier.align(Alignment.TopCenter))
+    }
+}
+
+/**
+ * The narrow form of the sidebar: expand, settings, and hide. It is deliberately icon-only —
+ * the whole point is to leave the transcript the width the phone has.
+ */
+@Composable
+private fun SessionRail(
+    onExpand: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onHide: () -> Unit,
+) {
+    val colors = DsTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(RAIL_WIDTH_DP.dp)
+            .background(colors.sidebar)
+            .safeDrawingPadding()
+            .padding(vertical = DsSpacing.small),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(DsSpacing.small),
+    ) {
+        DsIconButton(
+            icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = stringResource(R.string.chatlist_open),
+            onClick = onExpand,
+            tint = colors.labelSecondary,
+            iconSize = 18.dp,
+        )
+        DsIconButton(
+            icon = Icons.Filled.Settings,
+            contentDescription = stringResource(R.string.settings_title),
+            onClick = onOpenSettings,
+            tint = colors.labelTertiary,
+            iconSize = 18.dp,
+        )
+        Spacer(Modifier.weight(1f))
+        DsIconButton(
+            icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+            contentDescription = stringResource(R.string.common_close),
+            onClick = onHide,
+            tint = colors.labelTertiary,
+            iconSize = 18.dp,
+        )
     }
 }
