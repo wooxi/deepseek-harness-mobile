@@ -15,13 +15,16 @@ object DsType {
     val codeFont = FontFamily.Monospace
 
     // Markdown roles
-    val mdH1 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 34.sp)
-    val mdH2 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 32.sp)
-    val mdH3 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 30.sp)
-    val mdH4 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 28.sp)
-    val mdBody = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 28.sp)
-    val mdSmall = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 24.sp)
-    val mdCode = TextStyle(fontFamily = codeFont, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 22.sp)
+    // Line heights are deliberately tight: 1.75 on body text reads as a document on a phone, but
+    // on a foldable it turns one screen of chat into half a screen. 1.5 keeps the rhythm without
+    // the air.
+    val mdH1 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 30.sp)
+    val mdH2 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp)
+    val mdH3 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp)
+    val mdH4 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp)
+    val mdBody = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp)
+    val mdSmall = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp)
+    val mdCode = TextStyle(fontFamily = codeFont, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp)
 
     // UI roles
     val display24 = TextStyle(fontFamily = uiFont, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp)

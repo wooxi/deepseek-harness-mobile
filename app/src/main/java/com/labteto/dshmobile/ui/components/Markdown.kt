@@ -108,7 +108,7 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
     // List items arrive one per block, so runs of them are regrouped here: the renderer needs the
     // whole list at once to number an ordered list and to keep the markers in one column.
     val blocks = remember(text) { groupListBlocks(parseMarkdown(text)) }
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         blocks.forEach { render ->
             when (render) {
                 is RenderBlock.ListRun -> MdListBlock(render)
@@ -120,7 +120,7 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
                         3 -> DsType.mdH3
                         else -> DsType.mdH4
                     }
-                    InlineMarkdown(block.text, style.copy(color = colors.labelPrimary), Modifier.padding(top = 10.dp))
+                    InlineMarkdown(block.text, style.copy(color = colors.labelPrimary), Modifier.padding(top = 6.dp))
                 }
                 // A paragraph's line breaks are kept, as the web client keeps them: a model that
                 // lists one file per line meant one file per line, and joining with a space made

@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.labteto.dshmobile.ui.media.sampleSizeFor
@@ -453,6 +454,7 @@ fun ChatScreen(
                 onTabChange = { tab = it },
                 onOpenWorkspace = { panelKey = composer.key },
                 workspaceEnabled = currentSessionId != null,
+                compact = LocalConfiguration.current.screenWidthDp >= 600,
             )
 
             connectionError?.let {

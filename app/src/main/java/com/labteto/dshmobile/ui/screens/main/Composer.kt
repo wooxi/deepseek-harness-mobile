@@ -189,7 +189,7 @@ internal fun Composer(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = DsSpacing.medium, vertical = DsSpacing.small)
+            .padding(horizontal = DsSpacing.small, vertical = DsSpacing.tiny)
             .animateContentSize(),
         shape = DsShapes.composer,
         color = colors.composerCard,
@@ -198,8 +198,8 @@ internal fun Composer(
         BoxWithConstraints {
             val boundedHeight = constraints.hasBoundedHeight
             Column(
-                Modifier.padding(horizontal = DsSpacing.medium, vertical = DsSpacing.small),
-                verticalArrangement = Arrangement.spacedBy(DsSpacing.small),
+                Modifier.padding(horizontal = DsSpacing.small, vertical = DsSpacing.tiny),
+                verticalArrangement = Arrangement.spacedBy(DsSpacing.tiny),
             ) {
                 // Reserve the action row before measuring any draft content, including attachments.
                 Column(
@@ -299,7 +299,7 @@ internal fun Composer(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
                     horizontalArrangement = Arrangement.spacedBy(DsSpacing.compact),
                 ) {
                     CircleAction(

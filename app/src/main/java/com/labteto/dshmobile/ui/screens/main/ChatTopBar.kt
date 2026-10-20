@@ -83,6 +83,7 @@ internal fun ChatTopBar(
     onOpenWorkspace: () -> Unit,
     workspaceEnabled: Boolean,
     showDrawerButton: Boolean = true,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val colors = DsTheme.colors
@@ -90,7 +91,7 @@ internal fun ChatTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = 44.dp)
                 .padding(horizontal = DsSpacing.tiny),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -118,40 +119,83 @@ internal fun ChatTopBar(
         }
 
         val hasChips = agentPresetLabel != null || subagentCount > 0
-        if (title.isNotBlank() || hasChips) {
+        if (compact) {
+            // Wide windows put the title, the tabs and the workspace on one row. The phone keeps
+            // them apart because it does not have the width to spare; here the extra row is pure
+            // chrome between the reader and the transcript.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = DsSpacing.medium, vertical = DsSpacing.tiny),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(DsSpacing.tiny),
+                horizontalArrangement = Arrangement.spacedBy(DsSpacing.small),
             ) {
-                Text(
-                    title,
-                    style = DsType.std14Strong,
-                    color = colors.labelPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (agentPresetLabel != null) {
-                    MetaChip(
-                        icon = Icons.Outlined.Dashboard,
-                        label = agentPresetLabel,
-                        onClick = onOpenPresets,
+                if (title.isNotBlank() || hasChips) {
+                    Text(
+                        title,
+                        style = DsType.std14Strong,
+                        color = colors.labelPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
+                    if (agentPresetLabel != null) {
+                        MetaChip(
+                            icon = Icons.Outlined.Dashboard,
+                            label = agentPresetLabel,
+                            onClick = onOpenPresets,
+                        )
+                    }
+                    if (subagentCount > 0) {
+                        MetaChip(
+                            icon = Icons.Outlined.Groups,
+                            label = "$subagentCount",
+                            onClick = onOpenSubagents,
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
-                if (subagentCount > 0) {
-                    MetaChip(
-                        icon = Icons.Outlined.Groups,
-                        label = "$subagentCount",
-                        onClick = onOpenSubagents,
+                ChatTabs(tab, onTabChange)
+                WorkspaceButton(workspaceEnabled, onOpenWorkspace)
+            }
+            Divider()
+        } else {
+            if (title.isNotBlank() || hasChips) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = DsSpacing.medium, vertical = DsSpacing.tiny),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DsSpacing.tiny),
+                ) {
+                    Text(
+                        title,
+                        style = DsType.std14Strong,
+                        color = colors.labelPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
+                    if (agentPresetLabel != null) {
+                        MetaChip(
+                            icon = Icons.Outlined.Dashboard,
+                            label = agentPresetLabel,
+                            onClick = onOpenPresets,
+                        )
+                    }
+                    if (subagentCount > 0) {
+                        MetaChip(
+                            icon = Icons.Outlined.Groups,
+                            label = "$subagentCount",
+                            onClick = onOpenSubagents,
+                        )
+                    }
                 }
             }
-        }
 
-        ChatTabRow(tab, onTabChange, onOpenWorkspace, workspaceEnabled)
+            ChatTabRow(tab, onTabChange, onOpenWorkspace, workspaceEnabled)
+        }
     }
 }
 
@@ -261,45 +305,61 @@ private fun MetaChip(
  */
 @Composable
 private fun ChatTabRow(tab: ChatTab, onTabChange: (ChatTab) -> Unit, onOpenWorkspace: () -> Unit, workspaceEnabled: Boolean) {
-    val colors = DsTheme.colors
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = DsSpacing.medium, vertical = DsSpacing.tiny),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Which tab is live is load-bearing, not decoration: the two views render a user message
-        // completely differently — a right-aligned bubble in Chat, a `> line` of caption text in
-        // the Trajectory ledger — so a reader who cannot tell at a glance concludes the chat itself
-        // is broken.
-        DsSegmented(
-            segments = listOf(
-                DsSegment(TAB_CHAT, stringResource(R.string.chat_tab)),
-                DsSegment(TAB_TRAJECTORY, stringResource(R.string.trajectory_title)),
-            ),
-            selectedKey = if (tab == ChatTab.Chat) TAB_CHAT else TAB_TRAJECTORY,
-            onSelect = { key ->
-                onTabChange(if (key == TAB_CHAT) ChatTab.Chat else ChatTab.Trajectory)
-            },
-            role = Role.Tab,
-        )
+        ChatTabs(tab, onTabChange)
         Spacer(Modifier.weight(1f))
         // The workspace is a screen of its own, not a third view of the conversation: it opens
         // over the chat and comes back to it. A button beside the tabs, not among them.
-        DsButton(
-            text = stringResource(R.string.panel_workspace),
-            icon = FeatherIcons.Folder,
-            onClick = onOpenWorkspace,
-            variant = DsButtonVariant.Outline,
-            size = DsButtonSize.Small,
-            enabled = workspaceEnabled,
-        )
+        WorkspaceButton(workspaceEnabled, onOpenWorkspace)
     }
+    Divider()
+}
+
+/**
+ * Which tab is live is load-bearing, not decoration: the two views render a user message
+ * completely differently — a right-aligned bubble in Chat, a `> line` of caption text in
+ * the Trajectory ledger — so a reader who cannot tell at a glance concludes the chat itself
+ * is broken.
+ */
+@Composable
+private fun ChatTabs(tab: ChatTab, onTabChange: (ChatTab) -> Unit) {
+    DsSegmented(
+        segments = listOf(
+            DsSegment(TAB_CHAT, stringResource(R.string.chat_tab)),
+            DsSegment(TAB_TRAJECTORY, stringResource(R.string.trajectory_title)),
+        ),
+        selectedKey = if (tab == ChatTab.Chat) TAB_CHAT else TAB_TRAJECTORY,
+        onSelect = { key ->
+            onTabChange(if (key == TAB_CHAT) ChatTab.Chat else ChatTab.Trajectory)
+        },
+        role = Role.Tab,
+    )
+}
+
+@Composable
+private fun WorkspaceButton(workspaceEnabled: Boolean, onOpenWorkspace: () -> Unit) {
+    DsButton(
+        text = stringResource(R.string.panel_workspace),
+        icon = FeatherIcons.Folder,
+        onClick = onOpenWorkspace,
+        variant = DsButtonVariant.Outline,
+        size = DsButtonSize.Small,
+        enabled = workspaceEnabled,
+    )
+}
+
+@Composable
+private fun Divider() {
     Spacer(
         Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(colors.borderL1),
+            .background(DsTheme.colors.borderL1),
     )
 }
 
