@@ -87,6 +87,8 @@ fun ChatScreen(
     onOpenDetails: () -> Unit,
     onOpenDrawer: () -> Unit,
     detailsOpen: Boolean,
+    modifier: Modifier = Modifier,
+    showDrawerButton: Boolean = true,
 ) {
     val store = rememberSessionStore()
     val scope = rememberCoroutineScope()
@@ -421,7 +423,7 @@ fun ChatScreen(
             store.panels.get(composer.key).browse(path); panelKey = composer.key
         },
     ) {
-    Surface(modifier = Modifier.fillMaxSize(), color = colors.bgBase) {
+    Surface(modifier = modifier.fillMaxSize(), color = colors.bgBase) {
         // The activity draws edge to edge, so every top-level surface has to consume the insets
         // itself or the chrome ends up underneath the status bar. safeDrawing covers the status
         // bar, the gesture area and the keyboard in one modifier.
@@ -439,6 +441,7 @@ fun ChatScreen(
                 subagentCount = subagents.size,
                 detailsOpen = detailsOpen,
                 tab = tab,
+                showDrawerButton = showDrawerButton,
                 onOpenDrawer = onOpenDrawer,
                 onOpenModels = { sheet = ChatSheet.Models },
                 onOpenPresets = {

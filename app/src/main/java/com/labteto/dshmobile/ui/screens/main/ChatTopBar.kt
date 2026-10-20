@@ -82,6 +82,7 @@ internal fun ChatTopBar(
     onTabChange: (ChatTab) -> Unit,
     onOpenWorkspace: () -> Unit,
     workspaceEnabled: Boolean,
+    showDrawerButton: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val colors = DsTheme.colors
@@ -93,13 +94,15 @@ internal fun ChatTopBar(
                 .padding(horizontal = DsSpacing.tiny),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DsIconButton(
-                icon = FeatherIcons.Menu,
-                contentDescription = stringResource(R.string.chatlist_open),
-                onClick = onOpenDrawer,
-                tint = colors.labelSecondary,
-                iconSize = 18.dp,
-            )
+            if (showDrawerButton) {
+                DsIconButton(
+                    icon = FeatherIcons.Menu,
+                    contentDescription = stringResource(R.string.chatlist_open),
+                    onClick = onOpenDrawer,
+                    tint = colors.labelSecondary,
+                    iconSize = 18.dp,
+                )
+            }
             ModelChip(models = models, onClick = onOpenModels, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.weight(1f))
             StateDot(if (running) StateDotState.Running else StateDotState.Idle)

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug builds sit next to the store version; a distinct label is the only way to tell
+         them apart in the launcher. -->
+    <string name="app_name">DSH Mobile Fold</string>
+</resources>

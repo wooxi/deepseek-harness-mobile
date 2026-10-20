@@ -6,69 +6,81 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.unit.dp
-import com.labteto.dshmobile.ui.theme.DsTheme
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import com.labteto.dshmobile.R
-import com.labteto.dshmobile.ui.components.DsToastHost
-import com.labteto.dshmobile.ui.components.rememberDsToast
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.labteto.dshmobile.R
+import com.labteto.dshmobile.ui.components.DsToastHost
+import com.labteto.dshmobile.ui.components.rememberDsToast
+import com.labteto.dshmobile.ui.rememberSessionStore
 import com.labteto.dshmobile.ui.theme.DsAnimations
+import com.labteto.dshmobile.ui.theme.DsTheme
 import kotlinx.coroutines.launch
 
+/** Width at which the foldable/tablet shell takes over from the phone shell. */
+private const val EXPANDED_WIDTH_DP = 600
+
+/** Persistent session list on the wide shell. */
+private const val SIDEBAR_WIDTH_DP = 300
+
+/** Session details column on the wide shell. */
+private const val DETAILS_WIDTH_DP = 340
+
 /**
- * Discord-style shell:
- *  - swipe right from the LEFT edge (or anywhere on the content) opens the chat-list drawer
- *    (ModalNavigationDrawer's built-in gesture; swipe left on the drawer
- *    content closes it, scrim tap and Back also work)
- *  - swipe left from the RIGHT edge opens the session Details panel
- *  - swipe right anywhere on the open Details panel closes it
+ * Two shells, chosen by width:
  *
- * The details gesture detector only claims the drags it owns (leftward from the right edge
- * band, or any drag on the details area while it is open) and leaves every other horizontal
- * drag unconsumed. ModalNavigationDrawer puts an anchoredDraggable(Horizontal) on the whole
- * surface, so an always-consuming detector here would starve the drawer's open gesture.
- * Horizontal edge drags are axis-orthogonal to the chat list's vertical scroll, so the two
- * never conflict.
+ * - **Compact** (phones, the outer screen of a foldable): the original Discord-style drawer.
+ * - **Wide** (tablet-sized inner screen, or a vertical hinge): the session list is a permanent
+ *   left column, the chat gets the remaining width, and the details panel is a third column
+ *   instead of an overlay.
+ *
+ * The fold state is observed rather than guessed so a vertical hinge also selects the wide shell
+ * even if the window reports a width just under the breakpoint.
  */
 @Composable
 fun MainScreen(onOpenSettings: () -> Unit) {
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    var automationsOpen by remember { mutableStateOf(false) }
-    var automationSession by remember { mutableStateOf<String?>(null) }
-    val store = com.labteto.dshmobile.ui.rememberSessionStore()
+    val widthDp = LocalConfiguration.current.screenWidthDp
+    val fold = rememberFoldState()
+    val wide = widthDp >= EXPANDED_WIDTH_DP || fold.verticalHinge
+
+    var automationsOpen by rememberSaveable { mutableStateOf(false) }
+    var automationSession by rememberSaveable { mutableStateOf<String?>(null) }
+    val store = rememberSessionStore()
     val automationAvailable by store.automationAvailable.collectAsStateWithLifecycle()
     val toast = rememberDsToast()
     val unsupportedAutomation = stringResource(R.string.ux_b_automation_unavailable)
+
     LaunchedEffect(automationAvailable, automationsOpen) {
         if (automationAvailable == false && automationsOpen) {
             automationsOpen = false
@@ -76,7 +88,47 @@ fun MainScreen(onOpenSettings: () -> Unit) {
             toast.second(unsupportedAutomation)
         }
     }
-    var detailsOpen by remember { mutableStateOf(false) }
+
+    val openAutomations = {
+        automationSession = store.currentSessionId.value
+        automationsOpen = true
+    }
+
+    if (wide) {
+        WideMainScreen(
+            onOpenSettings = onOpenSettings,
+            onOpenAutomations = openAutomations,
+            toast = toast,
+        )
+    } else {
+        CompactMainScreen(
+            onOpenSettings = onOpenSettings,
+            onOpenAutomations = openAutomations,
+            toast = toast,
+        )
+    }
+
+    if (automationsOpen && automationAvailable != false) {
+        AutomationScreen(automationSession, onClose = { automationsOpen = false })
+    }
+}
+
+/**
+ * The original phone shell: the chat list is a drawer, and details slide in from the right edge.
+ *
+ * The details edge gesture only claims the drags it owns (leftward from the right edge band, or
+ * any drag on the details area while it is open) and leaves every other horizontal drag
+ * unconsumed for the drawer's built-in open gesture.
+ */
+@Composable
+private fun CompactMainScreen(
+    onOpenSettings: () -> Unit,
+    onOpenAutomations: () -> Unit,
+    toast: Pair<State<String?>, (String) -> Unit>,
+) {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var detailsOpen by rememberSaveable { mutableStateOf(false) }
     val detailsWidth = 300.dp
 
     ModalNavigationDrawer(
@@ -85,7 +137,10 @@ fun MainScreen(onOpenSettings: () -> Unit) {
             ChatListDrawer(
                 onClose = { scope.launch { drawerState.close() } },
                 onOpenSettings = onOpenSettings,
-                onOpenAutomations = { automationSession = null; automationsOpen = true; scope.launch { drawerState.close() } },
+                onOpenAutomations = {
+                    onOpenAutomations()
+                    scope.launch { drawerState.close() }
+                },
             )
         },
     ) {
@@ -99,10 +154,6 @@ fun MainScreen(onOpenSettings: () -> Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startX = down.position.x
-                        // Claim only gestures this screen handles: leftward drags starting in
-                        // the right edge band open details; drags starting on the open details
-                        // panel close it. Everything else (notably left-to-right swipes) must
-                        // stay unconsumed for the drawer's built-in open gesture.
                         val owned = if (!detailsOpen) {
                             startX >= width - edgeBandPx
                         } else {
@@ -112,8 +163,6 @@ fun MainScreen(onOpenSettings: () -> Unit) {
 
                         var claimed = false
                         awaitHorizontalTouchSlopOrCancellation(down.id) { change, overSlop ->
-                            // While closed, only a leftward drag belongs to this screen; a
-                            // rightward drag from the edge is the drawer's to open with.
                             claimed = detailsOpen || overSlop < 0f
                             if (claimed) change.consume()
                         } ?: return@awaitEachGesture
@@ -124,7 +173,6 @@ fun MainScreen(onOpenSettings: () -> Unit) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             if (change.changedToUpIgnoreConsumed()) break
-                            // A deeper scrollable claimed the drag; let it keep it.
                             if (change.isConsumed) break
                             totalX += change.positionChange().x
                             change.consume()
@@ -141,9 +189,11 @@ fun MainScreen(onOpenSettings: () -> Unit) {
                     }
                 },
         ) {
-            // The chat softens under the open panel: a blur where the platform renders one (API 31+;
-            // below that `blur` is a no-op and the scrim alone does the work).
-            val blur by animateDpAsState(if (detailsOpen) 6.dp else 0.dp, tween(220, easing = FastOutSlowInEasing), label = "detailsBlur")
+            val blur by animateDpAsState(
+                if (detailsOpen) 6.dp else 0.dp,
+                tween(220, easing = FastOutSlowInEasing),
+                label = "detailsBlur",
+            )
             Box(Modifier.fillMaxSize().blur(blur)) {
                 ChatScreen(
                     onOpenDetails = { detailsOpen = true },
@@ -152,8 +202,6 @@ fun MainScreen(onOpenSettings: () -> Unit) {
                 )
             }
 
-            // Tap anywhere outside the panel to close it — the same contract as the drawer's
-            // scrim. The drag-to-close gesture above still works; this adds the tap.
             AnimatedVisibility(
                 visible = detailsOpen,
                 enter = fadeIn(DsAnimations.fade),
@@ -164,7 +212,7 @@ fun MainScreen(onOpenSettings: () -> Unit) {
                         .fillMaxSize()
                         .background(DsTheme.colors.overlayMask)
                         .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = null,
                             indication = null,
                             onClickLabel = stringResource(R.string.common_close),
                         ) { detailsOpen = false },
@@ -173,20 +221,67 @@ fun MainScreen(onOpenSettings: () -> Unit) {
 
             AnimatedVisibility(
                 visible = detailsOpen,
-                // Explicit spec: the platform default runs 300ms, which lags behind the drag the
-                // panel is usually opened with.
                 enter = slideInHorizontally(DsAnimations.panelSlide) { it },
                 exit = slideOutHorizontally(DsAnimations.panelSlide) { it },
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
                 DetailsPanel(
                     onClose = { detailsOpen = false },
-                    onOpenAutomations = { automationSession = store.currentSessionId.value; automationsOpen = true; detailsOpen = false },
+                    onOpenAutomations = {
+                        onOpenAutomations()
+                        detailsOpen = false
+                    },
                     modifier = Modifier.width(detailsWidth),
                 )
             }
             DsToastHost(toast, Modifier.align(Alignment.TopCenter))
         }
     }
-    if (automationsOpen && automationAvailable != false) AutomationScreen(automationSession, onClose = { automationsOpen = false })
+}
+
+/**
+ * The wide shell: three columns, all persistent.
+ *
+ * The chat keeps the flexible middle so the transcript grows with the window; the two rails stay
+ * at fixed widths because their content is a list and a form, neither of which benefits from
+ * stretching. Details can still be closed, which hands the whole middle to the chat.
+ */
+@Composable
+private fun WideMainScreen(
+    onOpenSettings: () -> Unit,
+    onOpenAutomations: () -> Unit,
+    toast: Pair<State<String?>, (String) -> Unit>,
+) {
+    var detailsOpen by rememberSaveable { mutableStateOf(false) }
+
+    Box(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize()) {
+            ChatListDrawer(
+                onClose = {},
+                onOpenSettings = onOpenSettings,
+                onOpenAutomations = onOpenAutomations,
+                modifier = Modifier.width(SIDEBAR_WIDTH_DP.dp).fillMaxHeight(),
+            )
+            VerticalDivider(color = DsTheme.colors.borderL1)
+            ChatScreen(
+                onOpenDetails = { detailsOpen = !detailsOpen },
+                onOpenDrawer = {},
+                detailsOpen = detailsOpen,
+                showDrawerButton = false,
+                modifier = Modifier.weight(1f),
+            )
+            if (detailsOpen) {
+                VerticalDivider(color = DsTheme.colors.borderL1)
+                DetailsPanel(
+                    onClose = { detailsOpen = false },
+                    onOpenAutomations = {
+                        onOpenAutomations()
+                        detailsOpen = false
+                    },
+                    modifier = Modifier.width(DETAILS_WIDTH_DP.dp),
+                )
+            }
+        }
+        DsToastHost(toast, Modifier.align(Alignment.TopCenter))
+    }
 }

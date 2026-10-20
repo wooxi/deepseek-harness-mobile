@@ -94,6 +94,7 @@ fun ChatListDrawer(
     onClose: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAutomations: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val colors = DsTheme.colors
     val store = rememberSessionStore()
@@ -187,7 +188,7 @@ fun ChatListDrawer(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(colors.sidebar)
             .safeDrawingPadding()

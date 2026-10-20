@@ -61,6 +61,7 @@
             android:configChanges="locale|layoutDirection"
             android:exported="true"
             android:launchMode="singleTask"
+            android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.DshMobile.Starting">
             <intent-filter>
